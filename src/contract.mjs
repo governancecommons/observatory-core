@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { validateClassification } from "./classification.mjs";
 const validDate = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(s) && !Number.isNaN(Date.parse(s));
 const str = s => typeof s === "string" && s.trim().length > 0;
 const url = s => { try {const u=new URL(s);return u.protocol==="https:"&&!u.username&&!u.password;}catch{return false;} };
@@ -25,6 +26,9 @@ export function validateRecord(r){
  if(!url(r.sourceUrl))errors.push("invalid sourceUrl");
  if(!validDate(r.capturedAt))errors.push("invalid capturedAt");
  if(r.publicationStatus!=="approved")errors.push("record is not approved");
+ for(const error of validateClassification(r.classification))errors.push("ICQ: "+error);
+ if(r.classification?.assetId!==r.id)errors.push("ICQ: assetId does not match record id");
+ if(r.classification?.publication?.approvalRecordId!==r.approvalRecordId)errors.push("ICQ: approval reference mismatch");
  if(["third-party-evaluation","gc-evaluation","conformance-result"].includes(r.evidenceClass)){
  const x=r.measurement;
  if(!x||!str(x.task)||!Number.isInteger(x.sampleSize)||x.sampleSize<1||!str(x.conditions)||!str(x.metric)||!str(x.unit)||!url(x.artifactUrl))errors.push("incomplete measurement");
