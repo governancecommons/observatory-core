@@ -1,0 +1,20 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { sha256, validatePublication, validateManifest } from "../src/contract.mjs";
+const record={id:"record-1",subjectId:"model-a",subjectVersion:"2026-10",claim:"Documented capability",evaluator:"GC editor",method:"primary-source review",methodVersion:"1.0",limitations:"No independent benchmark",approvalRecordId:"approval-1",evidenceClass:"documentation",sourceUrl:"https://example.org/source",capturedAt:"2026-10-20T10:00:00Z",publicationStatus:"approved",classification:{specVersion:"1.0.0",assetId:"record-1",impact:"low",access:"open",quadrant:"Q3",dataLabels:[],publication:{status:"approved",approvedBy:"reviewer",approvalRecordId:"approval-1"}}};
+const bytes=Buffer.from(JSON.stringify([record]));
+const manifest={schemaVersion:"1.0.0",publicationId:"publication-1",generatedAt:"2026-10-20T12:00:00Z",recordsUrl:"https://example.org/records.json",recordsSha256:sha256(bytes),recordCount:1,approvedBy:"human-editor",approvalRecordId:"approval-1",sourceCommit:"a".repeat(40),methodologyVersion:"1.0.0"};
+test("approved documentation bundle passes",()=>assert.deepEqual(validatePublication(manifest,bytes),[]));
+test("checksum tampering is rejected",()=>assert.ok(validatePublication(manifest,Buffer.from("[]")).some(x=>x.includes("checksum"))));
+test("unsupported schema rejected",()=>assert.ok(validateManifest({...manifest,schemaVersion:"2.0.0"},bytes).length));
+test("missing approval rejected",()=>assert.ok(validatePublication({...manifest,approvedBy:""},bytes).length));
+test("record count mismatch rejected",()=>assert.ok(validatePublication({...manifest,recordCount:2},bytes).length));
+test("duplicate IDs rejected",()=>{const b=Buffer.from(JSON.stringify([record,record]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b),recordCount:2},b).some(x=>x.includes("duplicate")));});
+test("unapproved record rejected",()=>{const b=Buffer.from(JSON.stringify([{...record,publicationStatus:"pending"}]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("not approved")));});
+test("measurement without provenance rejected",()=>{const b=Buffer.from(JSON.stringify([{...record,evidenceClass:"gc-evaluation"}]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("measurement")));});
+test("unknown evidence class rejected",()=>{const b=Buffer.from(JSON.stringify([{...record,evidenceClass:"certified"}]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("evidenceClass")));});
+
+test("missing classification blocks publication",()=>{const {classification,...r}=record;const b=Buffer.from(JSON.stringify([r]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("ICQ")));});
+test("Q4 exposed high-impact data blocks publication",()=>{const r={...record,classification:{...record.classification,impact:"high",quadrant:"Q4"}};const b=Buffer.from(JSON.stringify([r]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("not publicly releasable")));});
+test("credentials cannot be published even with approval",()=>{const r={...record,classification:{...record.classification,dataLabels:["CREDENTIAL"]}};const b=Buffer.from(JSON.stringify([r]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("sensitive labels")));});
+test("mismatched classification approval is blocked",()=>{const r={...record,classification:{...record.classification,publication:{...record.classification.publication,approvalRecordId:"other"}}};const b=Buffer.from(JSON.stringify([r]));assert.ok(validatePublication({...manifest,recordsSha256:sha256(b)},b).some(x=>x.includes("approval reference mismatch")));});
