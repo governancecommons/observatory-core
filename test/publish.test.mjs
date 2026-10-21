@@ -1,0 +1,13 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {preparePublication} from "../src/publish.mjs";
+import {validatePublication} from "../src/contract.mjs";
+const record={id:"example-1",subjectId:"example-subject",subjectVersion:"1.0",claim:"Example documentation claim (fixture only)",evaluator:"test-reviewer",method:"fixture",methodVersion:"1.0",limitations:"Synthetic fixture; not real-world evidence",approvalRecordId:"fixture-approval",evidenceClass:"documentation",sourceUrl:"https://example.org/reference",capturedAt:"2026-10-20T00:00:00Z",publicationStatus:"approved",classification:{specVersion:"1.0.0",assetId:"example-1",impact:"low",access:"open",quadrant:"Q3",dataLabels:[],publication:{status:"approved",approvedBy:"test-reviewer",approvalRecordId:"fixture-approval"}}};
+const meta={publicationId:"fixture-release",generatedAt:"2026-10-20T00:00:00Z",recordsUrl:"https://example.org/records.json",approvedBy:"test-reviewer",approvalRecordId:"fixture-approval",sourceCommit:"a".repeat(40),methodologyVersion:"1.0"};
+test("approved synthetic fixture creates verifiable export",()=>{const p=preparePublication({records:[record],...meta});assert.deepEqual(validatePublication(p.manifest,p.recordsBytes),[]);});
+test("deterministic ordering and bytes",()=>{const second={...record,id:"example-2",classification:{...record.classification,assetId:"example-2"}};const a=preparePublication({records:[second,record],...meta});const b=preparePublication({records:[record,second],...meta});assert.deepEqual(a.recordsBytes,b.recordsBytes);assert.deepEqual(a.manifestBytes,b.manifestBytes);});
+test("rejects unpublished source",()=>assert.throws(()=>preparePublication({records:[{...record,publicationStatus:"pending"}],...meta}),/Publication refused/));
+test("rejects high-impact exposure",()=>assert.throws(()=>preparePublication({records:[{...record,classification:{...record.classification,impact:"high",quadrant:"Q4"}}],...meta}),/not publicly releasable/));
+test("rejects credentials",()=>assert.throws(()=>preparePublication({records:[{...record,classification:{...record.classification,dataLabels:["CREDENTIAL"]}}],...meta}),/sensitive labels/));
+test("rejects mismatched publication approval",()=>assert.throws(()=>preparePublication({records:[record],...meta,approvalRecordId:"other"}),/approval reference mismatch/));
+test("rejects duplicate identities",()=>assert.throws(()=>preparePublication({records:[record,record],...meta}),/duplicate/));
