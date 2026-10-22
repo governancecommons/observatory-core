@@ -5,7 +5,7 @@ test("document, passage and citation are deterministic and traceable",()=>{
  const content="Alpha evidence. Beta claim.";
  const args={sourceRef:"source:s@1",captureRef:"capture:c@1",content};
  const doc=makeResearchDocument(args);
- const passage=makeResearchPassage({document:doc,content,start:0,end:14});
+ const passage=makeResearchPassage({document:doc,content,start:0,end:"Alpha evidence.".length});
  const citation=makeResearchCitation({passage,content,quotedText:"Alpha evidence."});
  assert.equal(citation.documentId,doc.id);
  assert.equal(citation.passageId,passage.id);
