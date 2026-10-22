@@ -20,17 +20,24 @@ function publicAddress(address){
  }
  return false;
 }
-export function createSecureFeedTransport({allowedHosts,resolveHost=dnsLookup}={}){
+export function createSecureFeedTransport({allowedHosts,approvedAddresses,resolveHost=dnsLookup}={}){
  if(!Array.isArray(allowedHosts)||allowedHosts.length===0||allowedHosts.some(h=>typeof h!=="string"||!h||h!==h.toLowerCase()||h.includes(":")||h.includes("/")))
   throw new TypeError("explicit lowercase allowedHosts required");
  const hosts=new Set(allowedHosts);
+ // Explicit IP approval is mandatory until comprehensive public-address classification is reviewed.
+ if(!approvedAddresses || typeof approvedAddresses!=="object" || Array.isArray(approvedAddresses))throw new TypeError("approvedAddresses required");
+ for(const host of hosts){
+  const ips=approvedAddresses[host];
+  if(!Array.isArray(ips)||ips.length===0||ips.some(ip=>!publicAddress(ip)))throw new TypeError("public approvedAddresses required for "+host);
+ }
  return async function transport(url,{signal,redirect}={}){
   const u=new URL(url);
   if(u.protocol!=="https:"||u.username||u.password||u.hash||u.port&&u.port!=="443"||!hosts.has(u.hostname)||isIP(u.hostname))
    throw new TypeError("destination not authorized");
   if(redirect!=="error")throw new TypeError("redirect rejection required");
   const addresses=await resolveHost(u.hostname,{all:true,verbatim:true});
-  if(!Array.isArray(addresses)||addresses.length===0||addresses.some(a=>!publicAddress(a.address)))
+  const approved=new Set(approvedAddresses[u.hostname]);
+  if(!Array.isArray(addresses)||addresses.length===0||addresses.some(a=>!publicAddress(a.address)||!approved.has(a.address)))
    throw new Error("unsafe DNS resolution");
   if(signal?.aborted)throw new Error("retrieval aborted");
   const pinned=addresses[0];
@@ -39,14 +46,16 @@ export function createSecureFeedTransport({allowedHosts,resolveHost=dnsLookup}={
     const status=res.statusCode??0;
     if(status!==200){res.destroy();reject(new Error("feed HTTP status "+status));return;}
     // Adapt Node stream to WHATWG stream; retrieveFeed enforces byte limits.
+    res.pause();
     const body=new ReadableStream({
      start(controller){
-      res.on("data",chunk=>{try{controller.enqueue(new Uint8Array(chunk));}catch{res.destroy();}});
+      res.on("data",chunk=>{res.pause();try{controller.enqueue(new Uint8Array(chunk));}catch(error){controller.error(error);res.destroy(error);}});
       res.on("end",()=>controller.close());
       res.on("error",error=>controller.error(error));
      },
+     pull(){res.resume();},
      cancel(){res.destroy();}
-    });
+    },{highWaterMark:1});
     resolve({status,headers:{get:name=>res.headers[String(name).toLowerCase()]??null},body});
    });
    req.on("error",reject);
