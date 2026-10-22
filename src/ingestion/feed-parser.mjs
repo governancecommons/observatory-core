@@ -6,13 +6,14 @@
  */
 const MAX_BYTES=2_000_000;
 function decode(s) {
+ if(/&(?!(?:amp|lt|gt|quot|apos|#x[0-9a-f]+|#[0-9]+);)/i.test(s))throw new TypeError("unsupported XML entity");
  return s.replace(/&(#x[0-9a-f]+|#[0-9]+|amp|lt|gt|quot|apos);/gi,(_,v)=>{
   const named={amp:"&",lt:"<",gt:">",quot:'"',apos:"'"};
   if(named[v])return named[v];
   const n=v.toLowerCase().startsWith("#x")?parseInt(v.slice(2),16):Number(v.slice(1));
   if(!Number.isInteger(n)||n<1||n>0x10ffff||(n>=0xd800&&n<=0xdfff))throw new TypeError("invalid XML entity");
   return String.fromCodePoint(n);
- }).replace(/&(?!(?:amp|lt|gt|quot|apos|#x[0-9a-f]+|#[0-9]+);)/i,()=>{throw new TypeError("unsupported XML entity");});
+ });
 }
 function xmlTree(xml){
  if(typeof xml!=="string"||Buffer.byteLength(xml,"utf8")>MAX_BYTES)throw new TypeError("invalid or oversized feed");
