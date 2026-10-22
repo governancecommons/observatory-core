@@ -1,5 +1,7 @@
 import {DatabaseSync} from "node:sqlite";
 const [path,mode] = process.argv.slice(2);
+// Node --test also discovers fixture files; without worker args, exit cleanly.
+if (!path && !mode) process.exit(0);
 if (!path || !["rollback","commit"].includes(mode)) process.exit(2);
 const db = new DatabaseSync(path);
 db.exec("PRAGMA busy_timeout=10000");
