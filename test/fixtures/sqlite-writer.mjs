@@ -1,6 +1,7 @@
 import {SQLiteEvidenceStore} from "../../src/core/sqlite-store.mjs";
 const [path,prefix,countText]=process.argv.slice(2);
 const count=Number(countText);
+if (!path || !prefix || !Number.isInteger(count) || count < 1) process.exit(0);
 const db=await SQLiteEvidenceStore.open(path,{busyTimeout:20000});
 try {
  for(let i=0;i<count;i++){
