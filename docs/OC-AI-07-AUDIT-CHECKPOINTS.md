@@ -1,0 +1,5 @@
+# OC-AI-07 — Audit head checkpoints (experimental)
+
+`exportAuditCheckpoint(audit,{issuedAt})` verifies the local chain and returns a deterministic checkpoint with format, timestamp, record count, head hash, and a checksum of the checkpoint payload. `verifyAuditCheckpoint(audit,checkpoint)` checks the payload checksum, current chain integrity, truncation and continuity of the recorded checkpoint prefix even after later appends.
+
+**Critical boundary:** a checkpoint must be preserved independently, outside the database and under a separate trust domain. Its checksum is **not a digital signature** and offers no authenticity against an attacker able to replace both the checkpoint and database. The application does not yet upload checkpoints, attest an identity, sign records, schedule anchoring or provide remote witness receipts. An empty checkpoint only anchors the empty prefix. This feature supports externally managed checkpoint retention; it does not implement independent anchoring itself.
