@@ -20,6 +20,11 @@ test("research documents and citations survive restart",async()=>{
   assert.deepEqual(archive.search("Alpha evidence").items.map(x=>x.id),[document.id]);
   assert.deepEqual(archive.search("unrelated").items.length,1);
   assert.deepEqual(archive.search("nonexistent").items,[]);
+  const cited=archive.searchCitations("Alpha evidence");
+  assert.equal(cited.items.length,1);
+  assert.equal(cited.items[0].citation.quotedText,"Alpha evidence");
+  assert.equal(cited.items[0].citation.documentId,document.id);
+  assert.deepEqual(archive.searchCitations("nonexistent").items,[]);
   assert.throws(()=>archive.search("x",{limit:101}),/invalid pagination/);
   assert.throws(()=>archive.resolveCitation({documentId:document.id,start:0,end:15,quotedText:"invented quote"}),/citation does not match/);
   assert.equal(archive.get("missing"),null);
