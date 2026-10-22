@@ -18,10 +18,11 @@ export class SQLiteEvidenceStore {
     await mkdir(dirname(path),{recursive:true});
     const db=new DatabaseSync(path);
     try {
+      // Set busy timeout before any PRAGMA that may need a write lock.
+      db.exec("PRAGMA busy_timeout="+busyTimeout);
       db.exec("PRAGMA journal_mode=WAL");
       db.exec("PRAGMA synchronous=FULL");
       db.exec("PRAGMA foreign_keys=ON");
-      db.exec("PRAGMA busy_timeout="+busyTimeout);
       db.exec("CREATE TABLE IF NOT EXISTS evidence_records (seq INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT NOT NULL UNIQUE, record_type TEXT NOT NULL, record_id TEXT NOT NULL, version INTEGER NOT NULL, payload TEXT NOT NULL, UNIQUE(record_type,record_id,version))");
       db.exec("CREATE INDEX IF NOT EXISTS evidence_records_identity_idx ON evidence_records(record_type,record_id,version)");
       db.exec("CREATE INDEX IF NOT EXISTS evidence_records_type_seq_idx ON evidence_records(record_type,seq)");
