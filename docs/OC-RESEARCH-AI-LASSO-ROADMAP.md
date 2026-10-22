@@ -36,11 +36,15 @@ Gate: deterministic tool contract tests, permission checks and untrusted-source 
 - OpenAI, Anthropic, Google, Ollama and future providers are adapters, subject to provider API access, license and deployment controls.
 Gate: model actions cannot bypass GC approvals or source access controls.
 
-### LASSO-01 (future; separate project)
-- Define research planning, hypothesis, evidence-request, comparison and synthesis contracts against OC read-only research APIs and model gateway.
-- Outputs carry source refs, model/run provenance, limitations and human-review status.
+### LASSO-01 (future; separate project): Multi-agent workflow orchestration
+- LASSO's primary integration role is coordinating **multiple specialized agents**, not merely improving single-model reasoning: task decomposition, delegation, dependency graphs, parallel/sequential execution, handoffs, checkpoints, retries, cancellation, and bounded resource budgets.
+- Example research workflow: discovery agent -> evidence extraction agent -> provenance/verification agent -> synthesis agent; independent critique may run in parallel. Each agent may use a different model through the provider-neutral gateway.
+- Define versioned workflow, task, agent capability, handoff, execution event, result and approval-request contracts. Correlate runs with immutable OC evidence refs, model/provider attribution, and traceable input/output boundaries.
+- LASSO requests OC's scoped research tools; it cannot rewrite captured evidence, bypass Portal authorization, or publish autonomously.
+- Portal visualizes the workflow DAG, agent status, evidence, disagreements, cost and approvals. Portal owns human authorization; the model gateway owns provider adapters and credentials; OC owns evidence.
+- Initial workflow runtime must support human-in-the-loop pauses, idempotent resume, least-privilege tools, bounded fan-out, timeouts and durable audit events.
 - No canonical LASSO protocol claimed until its own specification is reviewed; no OC dependency on LASSO.
-Gate: LASSO can be disabled or replaced without breaking OC, Portal or source history.
+Gate: a multi-agent research workflow can be replayed/audited and LASSO can be disabled or replaced without breaking OC, Portal or source history.
 
 ## Cross-cutting requirements
 - Source trust is not inferred from source popularity or LLM confidence.
