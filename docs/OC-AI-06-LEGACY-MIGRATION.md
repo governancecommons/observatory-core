@@ -1,0 +1,5 @@
+# OC-AI-06 — Legacy research audit migration (experimental)
+
+`migrateLegacyResearchAudit(filePath,{backupConfirmed:true})` explicitly upgrades an OC-AI-04 SQLite audit table by adding previous-hash and entry-hash columns and hashing every existing row in sequence. It rejects missing tables, unexpected schemas, sequence gaps, partially migrated schemas and repeat migrations. Changes are wrapped in an IMMEDIATE transaction and verified by the existing chain verifier in tests.
+
+**Operational prerequisites:** stop all writers; create and independently verify a restorable backup of the database including WAL state; retain it. The `backupConfirmed` argument is an operator assertion, not proof of backup. This is an in-place schema upgrade and is not a migration for unknown versions or tampered databases. A newly generated chain cannot prove the historical authenticity of pre-migration records. This release adds no external hash anchoring, CLI or automatic migration. Do not deploy against live data without a separate migration rehearsal and recovery plan.
