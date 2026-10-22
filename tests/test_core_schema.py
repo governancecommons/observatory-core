@@ -60,5 +60,48 @@ class TestCoreSchema(unittest.TestCase):
         self.assertTrue(VALIDATOR.is_valid({**SOURCE, "extensions": {"gc:classification": "Q3"}}))
 
 
+    def test_remaining_record_types_validate(self):
+        base = dict(BASE)
+        digest = "sha256:" + "b" * 64
+        records = [
+            {**base, "recordType": "provenanceEdge", "fromRef": "capture-1",
+             "toRef": "evidence-1", "relation": "supports",
+             "assertedAt": "2026-10-22T19:00:00Z"},
+            {**base, "recordType": "verificationResult", "targetRef": "capture-1",
+             "procedureId": "sha256-check", "procedureVersion": "1",
+             "checkedAt": "2026-10-22T19:00:00Z", "outcome": "passed",
+             "limitations": "Checks bytes, not claim truth"},
+            {**base, "recordType": "changeEvent", "beforeRef": "obs-1-v1",
+             "afterRef": "obs-1-v2", "comparisonVersion": "1",
+             "changes": [{"path": "/value", "changeType": "modified"}]},
+            {**base, "recordType": "publicationCandidate",
+             "recordRefs": ["evidence-1"], "manifestDigest": digest,
+             "payloadDigest": digest, "preparedAt": "2026-10-22T19:00:00Z",
+             "policyRef": "external-policy-1"}
+        ]
+        for record in records:
+            with self.subTest(recordType=record["recordType"]):
+                self.assertEqual(list(VALIDATOR.iter_errors(record)), [])
+
+    def test_invalid_verification_outcome_fails(self):
+        record = {**BASE, "recordType": "verificationResult",
+                  "targetRef": "capture-1", "procedureId": "check",
+                  "procedureVersion": "1", "checkedAt": "2026-10-22T19:00:00Z",
+                  "outcome": "certified", "limitations": "synthetic"}
+        self.assertFalse(VALIDATOR.is_valid(record))
+
+    def test_empty_change_list_fails(self):
+        record = {**BASE, "recordType": "changeEvent", "beforeRef": "v1",
+                  "afterRef": "v2", "comparisonVersion": "1", "changes": []}
+        self.assertFalse(VALIDATOR.is_valid(record))
+
+    def test_publication_candidate_needs_digest(self):
+        record = {**BASE, "recordType": "publicationCandidate",
+                  "recordRefs": ["a"], "manifestDigest": "not-a-digest",
+                  "payloadDigest": "sha256:" + "c" * 64,
+                  "preparedAt": "2026-10-22T19:00:00Z", "policyRef": "policy"}
+        self.assertFalse(VALIDATOR.is_valid(record))
+
+
 if __name__ == "__main__":
     unittest.main()
