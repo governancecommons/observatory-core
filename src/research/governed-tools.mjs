@@ -9,7 +9,7 @@ export function createGovernedResearchTools(archive,{candidateDocumentIds,author
  if(!Array.isArray(candidateDocumentIds)||candidateDocumentIds.length>100||candidateDocumentIds.some(id=>typeof id!=="string"||!idPattern.test(id))||new Set(candidateDocumentIds).size!==candidateDocumentIds.length)throw new TypeError("bounded document candidates required");
  if(typeof authorize!=="function"||typeof audit!=="function")throw new TypeError("authorization and audit callbacks required");
  const candidates=new Set(candidateDocumentIds);
- function check(id,action){
+ function check(id,action,{skipDenied=false}={}){
   if(typeof id!=="string"||!idPattern.test(id))throw new TypeError("invalid documentId");
   let allowed=false;
   try{
@@ -17,14 +17,15 @@ export function createGovernedResearchTools(archive,{candidateDocumentIds,author
   }catch{allowed=false;}
   // A failed audit must fail closed before any protected archive read.
   audit(Object.freeze({documentId:id,action,allowed}));
-  if(!allowed)throw new Error("research document unavailable");
+  if(!allowed){if(skipDenied)return false;throw new Error("research document unavailable");}
+  return true;
  }
  return Object.freeze({
   searchEvidence({query,limit=10}={}){
    if(typeof query!=="string"||!query.trim()||query.length>256||!Number.isSafeInteger(limit)||limit<1||limit>20)throw new TypeError("invalid search arguments");
    const results=[];
    for(const id of candidates){
-    check(id,"search");
+    if(!check(id,"search",{skipDenied:true}))continue;
     const stored=archive.get(id);
     if(!stored)continue;
     const start=stored.content.indexOf(query);
