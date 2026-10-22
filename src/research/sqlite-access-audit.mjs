@@ -23,7 +23,7 @@ export class SQLiteResearchAccessAudit {
   }catch(error){db.close();throw error;}
  }
  record({occurredAt,subject,documentId,action,allowed}){
-  if(typeof occurredAt!=="string"||!/^\\d{4}-\\d{2}-\\d{2}T/.test(occurredAt)||!Number.isFinite(Date.parse(occurredAt)))throw new TypeError("valid timestamp required");
+  if(typeof occurredAt!=="string"||!/^\d{4}-\d{2}-\d{2}T/.test(occurredAt)||!Number.isFinite(Date.parse(occurredAt)))throw new TypeError("valid timestamp required");
   if(typeof subject!=="string"||!subject.trim()||subject.length>256)throw new TypeError("bounded subject required");
   if(typeof documentId!=="string"||!/^doc-[a-f0-9]{64}$/.test(documentId))throw new TypeError("invalid documentId");
   if(!["search","read","verify"].includes(action)||typeof allowed!=="boolean")throw new TypeError("invalid audit decision");
