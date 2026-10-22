@@ -53,6 +53,24 @@ export class SQLiteResearchArchive {
   const citation=makeResearchCitation({passage,content:stored.content,quotedText});
   return Object.freeze({document:stored.document,passage,citation});
  }
+ searchCitations(query,{limit=20,offset=0}={}){
+  if(typeof query!=="string"||!query.trim()||query.length>256)throw new TypeError("nonempty bounded query required");
+  if(!Number.isSafeInteger(limit)||limit<1||limit>100||!Number.isSafeInteger(offset)||offset<0||offset>10000)throw new RangeError("invalid pagination");
+  const matches=this.search(query,{limit,offset});
+  const items=[];
+  for(const document of matches.items){
+   const stored=this.get(document.id);
+   // Literal substring lookup: only return citations whose exact offsets are verified.
+   // FTS token matches may not be literal substrings; those documents are omitted.
+   const start=stored.content.toLocaleLowerCase("und").indexOf(query.toLocaleLowerCase("und"));
+   if(start<0)continue;
+   const end=start+query.length;
+   if(end>stored.content.length)continue;
+   const quotedText=stored.content.slice(start,end);
+   items.push(this.resolveCitation({documentId:document.id,start,end,quotedText}));
+  }
+  return Object.freeze({items,nextOffset:matches.nextOffset});
+ }
  search(query,{limit=20,offset=0}={}){
   if(typeof query!=="string"||!query.trim()||query.length>256)throw new TypeError("nonempty bounded query required");
   if(!Number.isSafeInteger(limit)||limit<1||limit>100||!Number.isSafeInteger(offset)||offset<0||offset>10000)throw new RangeError("invalid pagination");
