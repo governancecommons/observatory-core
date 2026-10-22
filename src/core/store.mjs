@@ -3,6 +3,7 @@
  * Not a database, authorization layer, JSON Schema validator, or publication gate.
  * References use "recordType:id@version" for internally managed records.
  */
+import {validateRecordSchema} from "./schema-validation.mjs";
 export const RECORD_TYPES = Object.freeze([
   "source", "capture", "evidence", "observation",
   "provenanceEdge", "verificationResult", "changeEvent", "publicationCandidate"
@@ -84,6 +85,7 @@ export class InMemoryEvidenceStore {
     // Copy first: caller mutations must not change stored history.
     const r = structuredClone(input);
     validateShape(r);
+    validateRecordSchema(r);
     const ref = recordRef(r);
     const identity = `${r.recordType}:${r.id}`;
     if (this.#records.has(ref)) throw new Error("immutable version already exists: " + ref);
