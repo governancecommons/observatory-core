@@ -31,9 +31,12 @@ const nonempty = x => typeof x === "string" && x.trim().length > 0;
 const utc = x => nonempty(x) && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/.test(x) && !Number.isNaN(Date.parse(x));
 const digest = x => typeof x === "string" && /^sha256:[0-9a-f]{64}$/.test(x);
 const own = (o,k) => Object.prototype.hasOwnProperty.call(o,k);
-function freeze(value) {
+function freeze(value, seen = new WeakSet()) {
   if (value && typeof value === "object") {
-    for (const child of Object.values(value)) freeze(child);
+    if (seen.has(value)) throw new TypeError("cyclic record data is unsupported");
+    seen.add(value);
+    for (const child of Object.values(value)) freeze(child, seen);
+    seen.delete(value);
     Object.freeze(value);
   }
   return value;
@@ -41,7 +44,7 @@ function freeze(value) {
 function parseRef(ref) {
   if (!nonempty(ref)) throw new TypeError("invalid reference");
   const match = /^([A-Za-z]+):([^@]+)@([1-9]\d*)$/.exec(ref);
-  if (!match || !types.has(match[1])) throw new TypeError("invalid typed reference: " + ref);
+  if (!match || !types.has(match[1]) || !Number.isSafeInteger(Number(match[3]))) throw new TypeError("invalid typed reference: " + ref);
   return {type: match[1], id: match[2], version: Number(match[3])};
 }
 export function recordRef(record) {
@@ -50,9 +53,11 @@ export function recordRef(record) {
 function validateShape(r) {
   if (!r || typeof r !== "object" || Array.isArray(r)) throw new TypeError("record must be an object");
   if (!types.has(r.recordType)) throw new TypeError("unsupported recordType");
-  if (r.schemaVersion !== "0.1.0" || !nonempty(r.id) || r.id.includes("@") ||
+  if (r.schemaVersion !== "0.1.0" || !nonempty(r.id) || /[:@]/.test(r.id) ||
       !Number.isSafeInteger(r.version) || r.version < 1 || !utc(r.createdAt) || !nonempty(r.producer))
     throw new TypeError("invalid common record fields");
+  if (r.extensions !== undefined && (r.extensions === null || typeof r.extensions !== "object" || Array.isArray(r.extensions) || Object.keys(r.extensions).some(k => !/^[a-zA-Z][a-zA-Z0-9.-]*:[a-zA-Z0-9._-]+$/.test(k))))
+    throw new TypeError("invalid extensions namespace");
   for (const field of required[r.recordType]) {
     if (!own(r,field) || r[field] === null || r[field] === undefined ||
         (typeof r[field] === "string" && !nonempty(r[field])))
@@ -69,7 +74,7 @@ function validateShape(r) {
   }
   if (r.recordType === "verificationResult" && !["passed","failed","inconclusive","error"].includes(r.outcome))
     throw new TypeError("invalid verification outcome");
-  if (r.recordType === "changeEvent" && (!Array.isArray(r.changes) || !r.changes.length))
+  if (r.recordType === "changeEvent" && (!Array.isArray(r.changes) || !r.changes.length || r.changes.some(x => !x || typeof x !== "object" || !nonempty(x.path) || !["added","removed","modified"].includes(x.changeType))))
     throw new TypeError("changes must be nonempty");
 }
 export class InMemoryEvidenceStore {
@@ -97,6 +102,12 @@ export class InMemoryEvidenceStore {
       if (before.type !== after.type || before.id !== after.id || before.version >= after.version)
         throw new Error("change event requires ascending versions of the same identity");
     }
+    // Reject cyclic/non-JSON-compatible values before touching store state.
+    try { JSON.stringify(r, (_key, value) => {
+      if (typeof value === "bigint" || typeof value === "function" || typeof value === "symbol" || typeof value === "undefined")
+        throw new TypeError("record contains non-JSON value");
+      return value;
+    }); } catch (error) { throw new TypeError("record must be JSON-compatible", {cause:error}); }
     freeze(r);
     this.#records.set(ref,r);
     this.#latest.set(identity,r.version);
