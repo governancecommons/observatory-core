@@ -28,7 +28,7 @@ function check(v,s,path="$"){
   if(s.minLength!==undefined&&v.length<s.minLength) throw new TypeError(path+" too short");
   if(s.maxLength!==undefined&&v.length>s.maxLength) throw new TypeError(path+" too long");
   if(s.pattern&&!new RegExp(s.pattern).test(v)) throw new TypeError(path+" invalid pattern");
-  if(s.format==="date-time" && (!/^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d+)?(?:Z|[+-]\\d\\d:\\d\\d)$/.test(v)||Number.isNaN(Date.parse(v)))) throw new TypeError(path+" invalid date-time");
+  if(s.format==="date-time" && (!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(v)||Number.isNaN(Date.parse(v)))) throw new TypeError(path+" invalid date-time");
   if(s.format&&s.format!=="date-time") throw new Error("unsupported format: "+s.format);
  }
  if(typeof v==="number"){
