@@ -84,8 +84,8 @@ export class InMemoryEvidenceStore {
   append(input) {
     // Copy first: caller mutations must not change stored history.
     const r = structuredClone(input);
-    validateRecordSchema(r);
     validateShape(r);
+    validateRecordSchema(r);
     const ref = recordRef(r);
     const identity = `${r.recordType}:${r.id}`;
     if (this.#records.has(ref)) throw new Error("immutable version already exists: " + ref);
