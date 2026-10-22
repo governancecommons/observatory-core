@@ -11,7 +11,7 @@ test("document, passage and citation are deterministic and traceable",()=>{
  assert.equal(citation.passageId,passage.id);
  assert.equal(citation.quotedText,"Alpha evidence.");
  assert.deepEqual(makeResearchDocument(args),doc);
- assert.deepEqual(makeResearchPassage({document:doc,content,start:0,end:14}),passage);
+ assert.deepEqual(makeResearchPassage({document:doc,content,start:0,end:"Alpha evidence.".length}),passage);
 });
 test("rejects stale document and forged citation text",()=>{
  const content="A verified source excerpt";
