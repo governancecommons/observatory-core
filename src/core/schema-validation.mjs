@@ -15,7 +15,11 @@ function check(v,s,path="$"){
   if(!target) throw new Error("unknown schema reference");
   check(v,target,path);
  }
- if(s.oneOf && s.oneOf.filter(branch=>{try{check(v,branch,path);return true;}catch{return false;}}).length!==1) throw new TypeError(path+" must match exactly one record schema");
+ if(s.oneOf){
+  const matches=[]; const failures=[];
+  for(const branch of s.oneOf){try{check(v,branch,path);matches.push(branch);}catch(error){failures.push(error);}}
+  if(matches.length!==1) throw matches.length===0 && failures.length ? failures[0] : new TypeError(path+" must match exactly one record schema");
+ }
  for(const branch of s.allOf??[]) check(v,branch,path);
  if(s.type && !typeOK(v,s.type)) throw new TypeError(path+" invalid type");
  if(Object.hasOwn(s,"const")&&!equal(v,s.const)) throw new TypeError(path+" invalid constant");
