@@ -1,0 +1,5 @@
+# OC-AI-04 — Persistent research access audit (experimental)
+
+`SQLiteResearchAccessAudit.open(filePath)` provides synchronous `record` and bounded `list` methods for access decisions with sequence, timestamp, subject, document ID, action and allow/deny result. SQLite uses WAL and FULL synchronous mode. `createResearchAuditCallback(audit,{subject,clock})` adapts the store to the OC-AI-03 governed facade. Failed audit writes throw, preventing the protected read.
+
+**Trust and security limits:** This is append-only at the application API, not tamper-proof storage: database administrators or filesystem writers can modify records. It does not cryptographically bind records, validate identities, capture policy version/reason, record all operations, or provide independent evidence sealing. The host must supply trusted subject and time, secure the audit file and backups, and enforce access to the audit listing. A successful synchronous write does not prove remote replication or external audit receipt. Further work should add integrity chaining, audit export/verification, retention and policy metadata.
