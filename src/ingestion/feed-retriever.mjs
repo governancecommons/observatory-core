@@ -1,0 +1,37 @@
+/** OC-08A: bounded retrieval through an injected, separately authorized transport.
+ * Transport MUST enforce destination allowlisting, DNS/IP and redirect SSRF checks.
+ * No built-in network transport is supplied by this module.
+ */
+export async function retrieveFeed(url,{transport,signal,maxBytes=2_000_000,timeoutMs=10_000}={}){
+ const parsed=new URL(url);
+ if(!["http:","https:"].includes(parsed.protocol)||parsed.username||parsed.password||parsed.hash)throw new TypeError("invalid feed URL");
+ if(typeof transport!=="function")throw new TypeError("authorized transport required");
+ if(!Number.isSafeInteger(maxBytes)||maxBytes<1||maxBytes>2_000_000)throw new RangeError("invalid byte limit");
+ if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>60_000)throw new RangeError("invalid timeout");
+ const controller=new AbortController(),abort=()=>controller.abort();
+ if(signal?.aborted)throw new Error("retrieval aborted");
+ signal?.addEventListener("abort",abort,{once:true});
+ const timer=setTimeout(abort,timeoutMs);
+ try{
+  const response=await transport(parsed.href,{signal:controller.signal,redirect:"error"});
+  if(!response||response.status!==200||!response.body?.getReader)throw new Error("invalid feed response or status");
+  const length=response.headers?.get?.("content-length");
+  if(length!=null&&/^\d+$/.test(length)&&Number(length)>maxBytes)throw new RangeError("feed exceeds byte limit");
+  const reader=response.body.getReader(),chunks=[];let total=0;
+  try{
+   while(true){
+    if(controller.signal.aborted)throw new Error("retrieval aborted");
+    const {done,value}=await reader.read();
+    if(done)break;
+    if(!(value instanceof Uint8Array))throw new TypeError("invalid response chunk");
+    total+=value.byteLength;
+    if(total>maxBytes)throw new RangeError("feed exceeds byte limit");
+    chunks.push(value);
+   }
+  }finally{if(controller.signal.aborted)await reader.cancel().catch(()=>{});reader.releaseLock();}
+  if(controller.signal.aborted)throw new Error("retrieval aborted");
+  const bytes=new Uint8Array(total);let offset=0;
+  for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
+  return {url:parsed.href,xml:new TextDecoder("utf-8",{fatal:true}).decode(bytes),byteLength:total};
+ }finally{clearTimeout(timer);signal?.removeEventListener("abort",abort);}
+}
