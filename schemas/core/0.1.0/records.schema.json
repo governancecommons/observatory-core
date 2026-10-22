@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.observatory-core.org/core/0.1.0/records.schema.json",
+  "title": "Observatory Core records v0.1.0 (proposal)",
+  "description": "Domain-neutral records. Publication eligibility and cross-record referential integrity require separate checks.",
+  "$defs": {
+    "base": {
+      "type": "object",
+      "required": [
+        "schemaVersion",
+        "id",
+        "version",
+        "createdAt",
+        "producer"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": "0.1.0"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "createdAt": {
+          "$ref": "#/$defs/utcTimestamp"
+        },
+        "producer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "extensions": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^[a-zA-Z][a-zA-Z0-9.-]*:[a-zA-Z0-9._-]+$"
+          },
+          "maxProperties": 32
+        }
+      },
+      "additionalProperties": true
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "Z$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "recordType",
+            "locator",
+            "sourceType",
+            "displayName"
+          ],
+          "properties": {
+            "recordType": {
+              "const": "source"
+            },
+            "locator": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "sourceType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "displayName": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "capture": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "recordType",
+            "sourceRef",
+            "capturedAt",
+            "contentDigest",
+            "mediaType",
+            "retrievalMethod"
+          ],
+          "properties": {
+            "recordType": {
+              "const": "capture"
+            },
+            "sourceRef": {
+              "$ref": "#/$defs/ref"
+            },
+            "capturedAt": {
+              "$ref": "#/$defs/utcTimestamp"
+            },
+            "contentDigest": {
+              "$ref": "#/$defs/digest"
+            },
+            "mediaType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "retrievalMethod": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "evidence": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "recordType",
+            "captureRefs",
+            "assertion",
+            "method",
+            "limitations"
+          ],
+          "properties": {
+            "recordType": {
+              "const": "evidence"
+            },
+            "captureRefs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/ref"
+              }
+            },
+            "assertion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "type": "string",
+              "minLength": 1
+            },
+            "limitations": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "observation": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/base"
+        },
+        {
+          "type": "object",
+          "required": [
+            "recordType",
+            "subjectRef",
+            "evidenceRefs",
+            "observedAt",
+            "value",
+            "methodVersion"
+          ],
+          "properties": {
+            "recordType": {
+              "const": "observation"
+            },
+            "subjectRef": {
+              "$ref": "#/$defs/ref"
+            },
+            "evidenceRefs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 100,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "#/$defs/ref"
+              }
+            },
+            "observedAt": {
+              "$ref": "#/$defs/utcTimestamp"
+            },
+            "value": {},
+            "methodVersion": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/source"
+    },
+    {
+      "$ref": "#/$defs/capture"
+    },
+    {
+      "$ref": "#/$defs/evidence"
+    },
+    {
+      "$ref": "#/$defs/observation"
+    }
+  ]
+}
