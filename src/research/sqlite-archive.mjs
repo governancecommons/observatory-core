@@ -19,6 +19,7 @@ export class SQLiteResearchArchive {
    db.exec("PRAGMA journal_mode=WAL");
    db.exec("PRAGMA synchronous=FULL");
    db.exec("CREATE TABLE IF NOT EXISTS research_documents (id TEXT PRIMARY KEY, descriptor TEXT NOT NULL, content TEXT NOT NULL)");
+   db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS research_fts USING fts5(document_id UNINDEXED, content, tokenize='unicode61')");
    return new SQLiteResearchArchive(db);
   }catch(error){db.close();throw error;}
  }
@@ -29,7 +30,12 @@ export class SQLiteResearchArchive {
    if(existing.content!==content||existing.descriptor!==JSON.stringify(descriptor))throw new Error("document identity collision");
    return descriptor;
   }
-  this.#db.prepare("INSERT INTO research_documents(id,descriptor,content) VALUES(?,?,?)").run(descriptor.id,JSON.stringify(descriptor),content);
+  this.#db.exec("BEGIN IMMEDIATE");
+  try {
+   this.#db.prepare("INSERT INTO research_documents(id,descriptor,content) VALUES(?,?,?)").run(descriptor.id,JSON.stringify(descriptor),content);
+   this.#db.prepare("INSERT INTO research_fts(document_id,content) VALUES(?,?)").run(descriptor.id,content);
+   this.#db.exec("COMMIT");
+  } catch(error) {this.#db.exec("ROLLBACK");throw error;}
   return descriptor;
  }
  get(documentId){
@@ -46,6 +52,13 @@ export class SQLiteResearchArchive {
   const passage=makeResearchPassage({document:stored.document,content:stored.content,start,end});
   const citation=makeResearchCitation({passage,content:stored.content,quotedText});
   return Object.freeze({document:stored.document,passage,citation});
+ }
+ search(query,{limit=20,offset=0}={}){
+  if(typeof query!=="string"||!query.trim()||query.length>256)throw new TypeError("nonempty bounded query required");
+  if(!Number.isSafeInteger(limit)||limit<1||limit>100||!Number.isSafeInteger(offset)||offset<0||offset>10000)throw new RangeError("invalid pagination");
+  const phrase='"'+query.replaceAll('"','""')+'"';
+  const rows=this.#db.prepare("SELECT document_id FROM research_fts WHERE research_fts MATCH ? ORDER BY rank,document_id LIMIT ? OFFSET ?").all(phrase,limit,offset);
+  return Object.freeze({items:rows.map(row=>this.get(row.document_id).document),nextOffset:rows.length===limit?offset+limit:null});
  }
  close(){this.#db.close();}
 }
