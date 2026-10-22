@@ -62,7 +62,7 @@ export class SQLiteResearchArchive {
    const stored=this.get(document.id);
    // Literal substring lookup: only return citations whose exact offsets are verified.
    // FTS token matches may not be literal substrings; those documents are omitted.
-   const start=stored.content.toLocaleLowerCase("und").indexOf(query.toLocaleLowerCase("und"));
+   const start=stored.content.indexOf(query);
    if(start<0)continue;
    const end=start+query.length;
    if(end>stored.content.length)continue;
