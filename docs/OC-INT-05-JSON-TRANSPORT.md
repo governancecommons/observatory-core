@@ -1,0 +1,5 @@
+# OC-INT-05 — Framework-neutral research JSON transport
+
+`createResearchJsonTransport(createIntegration)` provides a synchronous `handle(jsonBody,context)` adapter. It enforces a 16 KiB default request limit, parses JSON, creates a **new governed integration from the host-supplied context on every call**, and returns a status code and JSON response body. Malformed JSON or request arguments return 400, oversized bodies return 413, governed operation failures return 403, and infrastructure failures return 503. The host must not pass an unauthenticated or client-controlled identity as trusted context.
+
+This adapter **does not listen on a port or authenticate clients**. The embedding application owns authentication, session isolation, authorization, request origin checks, transport encryption, rate limiting, content-type handling, and deployment. The status 403 represents a generic operation failure and must not be interpreted as proof of an authorization denial. Do not expose this adapter directly to untrusted networks without a hardened host boundary and independent security review.
