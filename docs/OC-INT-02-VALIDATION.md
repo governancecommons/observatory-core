@@ -1,0 +1,5 @@
+# OC-INT-02 — Research integration validation (experimental)
+
+The `oc.research.v1` in-process adapter now validates each operation's argument shape and bounds before delegation. Unknown fields, malformed IDs, unbounded search requests and mismatched citation offsets are rejected. Synchronous operational failures produce a stable `{ok:false,error:{code:"RESEARCH_OPERATION_FAILED",message:"research operation unavailable"}}` envelope to avoid disclosing host internals. Successful calls return `{ok:true,result}` with the original operation and contract version.
+
+**Compatibility note:** This adds `ok` and changes operational exception behavior from throwing to a failure envelope. Consumers should inspect `ok` before using `result`. Validation errors still throw. The adapter remains in-process and accepts only synchronous facades. It does not authenticate callers, guarantee safe result serialization, bound response payloads, provide an HTTP/MCP transport, or replace host authorization. A future transport contract must define stricter output schemas, payload limits and error mapping.
