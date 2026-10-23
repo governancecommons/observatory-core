@@ -2,6 +2,7 @@
  * OC-INT-02: validated provider-neutral in-process research integration contract.
  * Host must supply an authenticated, governed facade.
  */
+import {validateResearchResult} from "./response-shapes.mjs";
 export const RESEARCH_CONTRACT_VERSION="oc.research.v1";
 const operations=Object.freeze(["searchEvidence","getDocument","verifyCitation"]);
 const docId=/^doc-[a-f0-9]{64}$/;
@@ -43,6 +44,11 @@ function serializable(value){
  if(typeof encoded!=="string"||Buffer.byteLength(encoded,"utf8")>MAX_RESPONSE_BYTES)throw new TypeError("response byte limit exceeded");
  return JSON.parse(encoded);
 }
+function validatedResult(operation,result){
+ const safe=serializable(result);
+ if(!validateResearchResult(operation,safe))throw new TypeError("invalid research response shape");
+ return safe;
+}
 export function createResearchIntegration(governedTools){
  if(!governedTools||operations.some(name=>typeof governedTools[name]!=="function"))throw new TypeError("governed research tool facade required");
  return Object.freeze({
@@ -53,7 +59,7 @@ export function createResearchIntegration(governedTools){
    try{
     const result=governedTools[request.operation](request.arguments);
     if(result&&typeof result.then==="function")throw new TypeError("asynchronous research facade unsupported");
-    return Object.freeze({version:RESEARCH_CONTRACT_VERSION,operation:request.operation,ok:true,result:serializable(result)});
+    return Object.freeze({version:RESEARCH_CONTRACT_VERSION,operation:request.operation,ok:true,result:validatedResult(request.operation,result)});
    }catch(error){
     if(error instanceof TypeError&&error.message==="asynchronous research facade unsupported")throw error;
     return Object.freeze({version:RESEARCH_CONTRACT_VERSION,operation:request.operation,ok:false,error:Object.freeze({code:"RESEARCH_OPERATION_FAILED",message:"research operation unavailable"})});
