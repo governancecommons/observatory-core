@@ -14,6 +14,35 @@ function validate(operation,args){
  if(operation==="verifyCitation")return exact(args,["documentId","start","end","quotedText"])&&typeof args.documentId==="string"&&docId.test(args.documentId)&&Number.isSafeInteger(args.start)&&args.start>=0&&Number.isSafeInteger(args.end)&&args.end>args.start&&args.end-args.start<=10000&&typeof args.quotedText==="string"&&args.quotedText.length===args.end-args.start;
  return false;
 }
+const MAX_RESPONSE_BYTES=256*1024;
+function serializable(value){
+ const seen=new Set();
+ function inspect(item,depth){
+  if(depth>32)throw new TypeError("response nesting limit exceeded");
+  if(item===null||typeof item==="string"||typeof item==="boolean")return;
+  if(typeof item==="number"&&Number.isFinite(item))return;
+  if(typeof item!=="object"||seen.has(item))throw new TypeError("unsupported or cyclic response");
+  if(!Array.isArray(item)&&![Object.prototype,null].includes(Object.getPrototypeOf(item)))throw new TypeError("unsupported response object");
+  seen.add(item);
+  if(Array.isArray(item)){
+   if(item.length>1000)throw new TypeError("response array too large");
+   for(let i=0;i<item.length;i++){if(!Object.prototype.hasOwnProperty.call(item,i))throw new TypeError("sparse response array");inspect(item[i],depth+1);}
+  }else{
+   const keys=Object.keys(item);
+   if(keys.length>1000)throw new TypeError("response object too large");
+   for(const key of keys){
+    const descriptor=Object.getOwnPropertyDescriptor(item,key);
+    if(!descriptor||!("value" in descriptor))throw new TypeError("response accessor unsupported");
+    inspect(descriptor.value,depth+1);
+   }
+  }
+  seen.delete(item);
+ }
+ inspect(value,0);
+ const encoded=JSON.stringify(value);
+ if(typeof encoded!=="string"||Buffer.byteLength(encoded,"utf8")>MAX_RESPONSE_BYTES)throw new TypeError("response byte limit exceeded");
+ return JSON.parse(encoded);
+}
 export function createResearchIntegration(governedTools){
  if(!governedTools||operations.some(name=>typeof governedTools[name]!=="function"))throw new TypeError("governed research tool facade required");
  return Object.freeze({
@@ -24,7 +53,7 @@ export function createResearchIntegration(governedTools){
    try{
     const result=governedTools[request.operation](request.arguments);
     if(result&&typeof result.then==="function")throw new TypeError("asynchronous research facade unsupported");
-    return Object.freeze({version:RESEARCH_CONTRACT_VERSION,operation:request.operation,ok:true,result});
+    return Object.freeze({version:RESEARCH_CONTRACT_VERSION,operation:request.operation,ok:true,result:serializable(result)});
    }catch(error){
     if(error instanceof TypeError&&error.message==="asynchronous research facade unsupported")throw error;
     return Object.freeze({version:RESEARCH_CONTRACT_VERSION,operation:request.operation,ok:false,error:Object.freeze({code:"RESEARCH_OPERATION_FAILED",message:"research operation unavailable"})});
